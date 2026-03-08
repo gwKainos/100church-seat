@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <?!= include('Styles'); ?>
+  <style>
+    body { background: #f5f5f5; padding: 12px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .header h1 { font-size: 18px; color: #333; margin: 0; }
+    .header-btns { display: flex; gap: 8px; }
+
+    .tabs { margin-bottom: 12px; }
+    .tab { padding: 10px 20px; font-size: 13px; }
+    .tab.active.original { background: #28a745; }
+    .tab.active.moved { background: #007bff; }
+
+    .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+    .toolbar-label { font-size: 12px; color: #666; }
+
+    .grid-box { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 12px; overflow: auto; display: inline-block; }
+    .grid { display: grid; gap: 2px; width: fit-content; }
+    .grid .cell { width: 26px; height: 26px; cursor: pointer; }
+    .col-header, .row-header { background: #f0f0f0; color: #888; font-size: 8px; cursor: default; }
+
+    .info { margin-top: 10px; font-size: 11px; color: #888; }
+    .layer-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; color: #fff; margin-left: 8px; }
+    .layer-badge.original { background: #28a745; }
+    .layer-badge.moved { background: #007bff; }
+  </style>
+</head>
+<body>
+
+<div id="loading" class="loading-overlay">불러오는 중...</div>
+
+<div class="header">
+  <h1>좌석 배치 관리자 <span id="layerBadge" class="layer-badge moved">이동</span></h1>
+  <div class="header-btns">
+    <button class="btn btn-secondary" onclick="App.goTo()">돌아가기</button>
+    <button class="btn btn-success" onclick="save()">저장</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab moved active" data-layer="moved" onclick="switchLayer('moved')">이동 자리</button>
+  <button class="tab original" data-layer="original" onclick="switchLayer('original')">원본 자리</button>
+</div>
+
+<div class="toolbar">
+  <span class="toolbar-label">도구:</span>
+  <div class="tool active" data-type="seat" onclick="selectTool('seat')">좌석</div>
+  <div class="tool" data-type="aisle" onclick="selectTool('aisle')">통로</div>
+  <div class="tool" data-type="pillar" onclick="selectTool('pillar')">기둥</div>
+</div>
+
+<div class="grid-box">
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="info">클릭/드래그로 셀 타입 변경 | 원본과 이동 자리의 레이아웃을 각각 설정하세요</div>
+
+<?!= include('Utils'); ?>
+<script>
+var ROWS = 11, COLS = 32;
+var currentLayer = 'moved';
+var currentTool = 'seat';
+var gridData = {}; // { original: 2D array, moved: 2D array }
+
+function initGridData() {
+  var arr = [];
+  for (var r = 0; r < ROWS; r++) {
+    arr[r] = [];
+    for (var c = 0; c < COLS; c++) arr[r][c] = 'seat';
+  }
+  return arr;
+}
+
+function switchLayer(layer) {
+  currentLayer = layer;
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelector('.tab[data-layer="' + layer + '"]').classList.add('active');
+
+  var badge = document.getElementById('layerBadge');
+  badge.className = 'layer-badge ' + layer;
+  badge.innerText = layer === 'moved' ? '이동' : '원본';
+
+  renderGrid();
+}
+
+function selectTool(type) {
+  currentTool = type;
+  document.querySelectorAll('.tool').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelector('.tool[data-type="' + type + '"]').classList.add('active');
+}
+
+function createGrid() {
+  var g = document.getElementById('grid');
+  g.innerHTML = '';
+  g.style.gridTemplateColumns = '28px repeat(' + COLS + ', 26px)';
+
+  // 헤더 행
+  g.appendChild(createCell('', 'col-header'));
+  for (var c = 1; c <= COLS; c++) {
+    g.appendChild(createCell(c, 'col-header'));
+  }
+
+  // 데이터 행
+  for (var r = 1; r <= ROWS; r++) {
+    g.appendChild(createCell(r, 'row-header'));
+    for (var c = 1; c <= COLS; c++) {
+      var cell = createCell('', 'cell-seat');
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      cell.onmousedown = function() { Drag.start(); applyTool(this); };
+      cell.onmouseenter = function() { if (Drag.active) applyTool(this); };
+      g.appendChild(cell);
+    }
+  }
+}
+
+function createCell(text, className) {
+  var d = document.createElement('div');
+  d.className = 'cell ' + className;
+  d.innerText = text;
+  return d;
+}
+
+function applyTool(cell) {
+  var r = parseInt(cell.dataset.row) - 1;
+  var c = parseInt(cell.dataset.col) - 1;
+  gridData[currentLayer][r][c] = currentTool;
+  updateCellStyle(cell, currentTool);
+}
+
+function updateCellStyle(cell, type) {
+  cell.className = 'cell';
+  if (type === 'seat') cell.classList.add('cell-seat');
+  else if (type === 'aisle') cell.classList.add('cell-aisle');
+  else if (type === 'pillar') { cell.classList.add('cell-pillar'); cell.innerText = '기'; return; }
+  cell.innerText = '';
+}
+
+function renderGrid() {
+  var data = gridData[currentLayer];
+  document.querySelectorAll('.cell[data-row]').forEach(function(cell) {
+    var r = parseInt(cell.dataset.row) - 1;
+    var c = parseInt(cell.dataset.col) - 1;
+    updateCellStyle(cell, data[r][c]);
+  });
+}
+
+function applyConfigToGrid(config, layer) {
+  var data = gridData[layer];
+
+  // 초기화
+  for (var r = 0; r < ROWS; r++) {
+    for (var c = 0; c < COLS; c++) data[r][c] = 'seat';
+  }
+
+  // 통로 적용 (개별 셀 [행, 열] 형식)
+  (config.aisles || []).forEach(function(p) {
+    if (Array.isArray(p)) {
+      // 새 형식: [행, 열]
+      var pr = p[0] - 1, pc = p[1] - 1;
+      if (pr >= 0 && pr < ROWS && pc >= 0 && pc < COLS) data[pr][pc] = 'aisle';
+    } else {
+      // 이전 형식: 열 번호만 (전체 열)
+      for (var r = 0; r < ROWS; r++) {
+        if (p > 0 && p <= COLS) data[r][p - 1] = 'aisle';
+      }
+    }
+  });
+
+  // 기둥 적용
+  (config.pillars || []).forEach(function(p) {
+    var pr = p[0] - 1, pc = p[1] - 1;
+    if (pr >= 0 && pr < ROWS && pc >= 0 && pc < COLS) data[pr][pc] = 'pillar';
+  });
+}
+
+function load() {
+  App.showLoading('불러오는 중...');
+
+  // gridData 초기화
+  gridData.original = initGridData();
+  gridData.moved = initGridData();
+
+  // 원본 레이아웃 로드
+  google.script.run
+    .withSuccessHandler(function(originalConfig) {
+      applyConfigToGrid(originalConfig, 'original');
+
+      // 이동 레이아웃 로드
+      google.script.run
+        .withSuccessHandler(function(movedConfig) {
+          try {
+            applyConfigToGrid(movedConfig, 'moved');
+            renderGrid();
+          } catch (e) {
+            console.error('그리드 렌더링 오류:', e);
+          }
+          App.hideLoading();
+        })
+        .withFailureHandler(function(e) {
+          console.error('이동 레이아웃 로드 실패:', e);
+          try { renderGrid(); } catch (err) { console.error('렌더링 오류:', err); }
+          App.hideLoading();
+        })
+        .getLayout('moved');
+    })
+    .withFailureHandler(function(e) {
+      console.error('원본 레이아웃 로드 실패:', e);
+      try { renderGrid(); } catch (err) { console.error('렌더링 오류:', err); }
+      App.hideLoading();
+    })
+    .getLayout('original');
+}
+
+function save() {
+  App.showLoading('저장 중...');
+
+  var data = gridData[currentLayer];
+
+  // aisles: 개별 통로 위치 [행, 열]
+  var aisles = [];
+  for (var r = 0; r < ROWS; r++) {
+    for (var c = 0; c < COLS; c++) {
+      if (data[r][c] === 'aisle') aisles.push([r + 1, c + 1]);
+    }
+  }
+
+  // pillars: 개별 기둥 위치 [행, 열]
+  var pillars = [];
+  for (var r = 0; r < ROWS; r++) {
+    for (var c = 0; c < COLS; c++) {
+      if (data[r][c] === 'pillar') pillars.push([r + 1, c + 1]);
+    }
+  }
+
+  var config = { rows: ROWS, aisles: aisles, pillars: pillars };
+
+  google.script.run
+    .withSuccessHandler(function(msg) {
+      alert(msg);
+      App.hideLoading();
+    })
+    .withFailureHandler(function(e) {
+      alert('저장 실패: ' + e);
+      App.hideLoading();
+    })
+    .saveLayout(currentLayer, config);
+}
+
+// 초기화
+createGrid();
+window.onload = load;
+</script>
+</body>
+</html>

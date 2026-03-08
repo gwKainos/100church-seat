@@ -1,0 +1,71 @@
+<script>
+// ========== 앱 유틸리티 ==========
+
+var App = {
+  version: null,
+
+  // 로딩 표시
+  showLoading: function(text) {
+    var el = document.getElementById('loading');
+    if (el) {
+      if (text) el.innerText = text;
+      el.classList.remove('hidden');
+    }
+  },
+
+  hideLoading: function() {
+    var el = document.getElementById('loading');
+    if (el) el.classList.add('hidden');
+  },
+
+  // 알림 배너
+  showAlert: function() {
+    var el = document.getElementById('alert');
+    if (el) el.style.display = 'block';
+  },
+
+  hideAlert: function() {
+    var el = document.getElementById('alert');
+    if (el) el.style.display = 'none';
+  },
+
+  // 버전 체크 (실시간 동기화)
+  checkVersion: function(callback) {
+    google.script.run
+      .withSuccessHandler(function(v) {
+        if (App.version && v !== App.version) {
+          App.showAlert();
+        }
+        if (callback) callback(v);
+      })
+      .getServerVersion();
+  },
+
+  updateVersion: function() {
+    google.script.run
+      .withSuccessHandler(function(v) { App.version = v; })
+      .getServerVersion();
+  },
+
+  // 페이지 이동
+  goTo: function(page) {
+    google.script.run
+      .withSuccessHandler(function(baseUrl) {
+        window.top.location.href = page ? baseUrl + '?page=' + page : baseUrl;
+      })
+      .getScriptUrl();
+  }
+};
+
+// ========== 드래그 지원 ==========
+
+var Drag = {
+  active: false,
+  start: function() { Drag.active = true; },
+  end: function() { Drag.active = false; }
+};
+
+// 드래그 이벤트 바인딩
+document.addEventListener('mouseup', Drag.end);
+document.addEventListener('touchend', Drag.end);
+</script>

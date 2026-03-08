@@ -1,239 +1,320 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <base target="_top">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <style>
-        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #fff; font-family: sans-serif; touch-action: none; }
-        .main-wrapper { display: flex; height: 100vh; width: 100vw; }
-        .sidebar-menu { width: 160px; background: #f8f9fa; border-right: 1px solid #ddd; display: flex; flex-direction: column; flex-shrink: 0; transition: margin-left 0.3s; position: relative; }
-        .sidebar-menu.collapsed { margin-left: -160px; }
-        .toggle-btn { position: absolute; top: 50%; right: -25px; transform: translateY(-50%); width: 25px; height: 60px; background: #333; color: #fff; border: none; border-radius: 0 5px 5px 0; cursor: pointer; z-index: 100; font-size: 12px; }
-        .item-section { flex-grow: 1; overflow-y: auto; padding: 5px; }
-        .grade-flex { display: flex; gap: 4px; margin-bottom: 8px; }
-        .grade-col { flex: 1; display: flex; flex-direction: column; gap: 3px; }
-        .label { font-size: 10px; font-weight: bold; text-align: center; color: #666; margin-bottom: 2px; border-bottom: 1px solid #eee; }
-        .tag { width: 100%; padding: 6px 0; text-align: center; color: #fff; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 10px; border: 1px solid rgba(0,0,0,0.1); }
-        .c-5 { background: #1976d2; } .c-6 { background: #388e3c; } .c-choir { background: #9c27b0; }
-        .selected-tag { outline: 3px solid #ffeb3b; transform: scale(1.05); z-index: 10; }
-        .footer-btns { display: flex; flex-direction: column; gap: 2px; padding: 5px; }
-        .btn { border: none; padding: 10px; cursor: pointer; font-weight: bold; font-size: 11px; color: #fff; border-radius: 4px; }
-        .btn-save { background: #28a745; } .btn-reset { background: #dc3545; }
-        .grid-wrapper { flex-grow: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 5px; position: relative; }
-        .grid-container { display: grid; grid-template-columns: repeat(34, minmax(0, 1fr)); width: 100%; aspect-ratio: 34 / 11; gap: 1px; }
-        .cell { border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; background: #fff; min-width: 0; }
-        .pillar { background: #444 !important; color: #fff !important; border: none; }
-        .aisle { background: #f0f0f0; border: none; }
-        #loading { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; z-index: 2000; display: none; }
-        #update-alert { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: #ffc107; color: #000; padding: 12px 25px; border-radius: 30px; font-weight: bold; font-size: 13px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; display: none; z-index: 3000; border: 2px solid #fff; }
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <?!= include('Styles'); ?>
+  <style>
+    body { overflow: hidden; touch-action: none; }
+    .wrapper { display: flex; height: 100vh; }
 
-        @media (orientation: portrait) {
-          .main-wrapper { flex-direction: column; } .sidebar-menu { width: 100%; height: auto; } .sidebar-menu.collapsed { margin-top: -160px; margin-left: 0; }
-          .toggle-btn { top: auto; bottom: -25px; right: 10px; width: 50px; height: 25px; border-radius: 0 0 5px 5px; transform: none; }
-        }
-    </style>
+    /* 사이드바 */
+    .sidebar {
+      width: 150px; background: #f8f9fa; border-right: 1px solid #ddd;
+      display: flex; flex-direction: column; flex-shrink: 0;
+      transition: margin-left 0.3s; position: relative;
+    }
+    .sidebar.collapsed { margin-left: -150px; }
+    .sidebar-toggle {
+      position: absolute; top: 50%; right: -24px; transform: translateY(-50%);
+      width: 24px; height: 56px; background: #333; color: #fff;
+      border: none; border-radius: 0 4px 4px 0; cursor: pointer; font-size: 11px;
+    }
+    .sidebar-content { flex: 1; overflow-y: auto; padding: 8px; }
+    .sidebar-footer { padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+
+    .grade-row { display: flex; gap: 4px; margin-bottom: 8px; }
+    .grade-col { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .choir-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+
+    /* 메인 영역 */
+    .main { flex: 1; display: flex; flex-direction: column; padding: 8px; overflow: hidden; }
+    .grid-area { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding-top: 8px; }
+    .grid { display: grid; gap: 2px; }
+    .grid .cell { width: 24px; height: 24px; }
+
+    /* 탭 색상 */
+    .tab.active[data-layer="original"] { background: #28a745; }
+    .tab.active[data-layer="moved"] { background: #007bff; }
+
+    @media (orientation: portrait) {
+      .wrapper { flex-direction: column; }
+      .sidebar { width: 100%; flex-direction: row; height: auto; border-right: none; border-bottom: 1px solid #ddd; }
+      .sidebar.collapsed { margin-left: 0; margin-top: -120px; }
+      .sidebar-toggle { top: auto; bottom: -24px; right: 8px; width: 48px; height: 24px; border-radius: 0 0 4px 4px; transform: none; }
+      .sidebar-content { flex-direction: row; }
+    }
+  </style>
 </head>
 <body>
 
-<div id="update-alert" onclick="refreshData();">🔔 데이터가 변경되었습니다. (클릭하여 반영)</div>
+<div id="loading" class="loading-overlay">불러오는 중...</div>
+<div id="alert" class="alert-banner" onclick="refresh()">데이터가 변경되었습니다 (클릭)</div>
 
-<div class="main-wrapper">
-    <div class="sidebar-menu" id="sidebar">
-        <button class="toggle-btn" onclick="toggleSidebar()">◀</button>
-        <div class="item-section">
-            <div class="grade-flex">
-                <div class="grade-col">
-                    <div class="label">5학년</div>
-                    <? if (data.grade5) { for(var i=0; i < data.grade5.length; i++) { ?>
-                    <div class="tag c-5" onclick="selectTag(this)"><?= data.grade5[i] ?></div>
-                    <? } } ?>
-                </div>
-                <div class="grade-col">
-                    <div class="label">6학년</div>
-                    <? if (data.grade6) { for(var j=0; j < data.grade6.length; j++) { ?>
-                    <div class="tag c-6" onclick="selectTag(this)"><?= data.grade6[j] ?></div>
-                    <? } } ?>
-                </div>
-            </div>
-            <div class="label">성가대</div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:3px;">
-                <? if (data.choir) { for(var k=0; k < data.choir.length; k++) { ?>
-                <div class="tag c-choir" onclick="selectTag(this)"><?= data.choir[k] ?></div>
-                <? } } ?>
-            </div>
+<div class="wrapper">
+  <div class="sidebar" id="sidebar">
+    <button class="sidebar-toggle" onclick="toggleSidebar()">◀</button>
+    <div class="sidebar-content">
+      <div class="grade-row">
+        <div class="grade-col">
+          <div class="label">5학년</div>
+          <? var classes = getClassData(); ?>
+          <? for (var i = 0; i < classes.grade5.length; i++) { ?>
+          <div class="tag tag-5" onclick="selectTag(this)"><?= classes.grade5[i] ?></div>
+          <? } ?>
         </div>
-        <div class="footer-btns">
-            <button class="btn btn-save" onclick="saveData()">배치 저장하기</button>
-            <button class="btn btn-reset" onclick="resetAll()">전체 리셋</button>
+        <div class="grade-col">
+          <div class="label">6학년</div>
+          <? for (var j = 0; j < classes.grade6.length; j++) { ?>
+          <div class="tag tag-6" onclick="selectTag(this)"><?= classes.grade6[j] ?></div>
+          <? } ?>
         </div>
+      </div>
+      <div class="label">성가대</div>
+      <div class="choir-grid">
+        <? for (var k = 0; k < classes.choir.length; k++) { ?>
+        <div class="tag tag-choir" onclick="selectTag(this)"><?= classes.choir[k] ?></div>
+        <? } ?>
+      </div>
     </div>
-    <div class="grid-wrapper">
-        <div id="loading">데이터 처리 중...</div>
-        <div class="grid-container" id="grid"></div>
+    <div class="sidebar-footer">
+      <button class="btn btn-success" onclick="save()">저장</button>
+      <button class="btn btn-danger" onclick="reset()">리셋</button>
+      <button class="btn btn-secondary" onclick="App.goTo('admin')">관리자</button>
     </div>
+  </div>
+
+  <div class="main">
+    <div class="tabs">
+      <button class="tab active" data-layer="moved" onclick="switchLayer('moved')">이동 자리</button>
+      <button class="tab" data-layer="original" onclick="switchLayer('original')">원본 자리</button>
+    </div>
+    <div class="grid-area">
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
 </div>
 
+<?!= include('Utils'); ?>
 <script>
-    var layout = [7, '통', 5, '통', 4, '통', 4, '통', 4, '통', 5];
-    var selectedName = "", selectedBg = "", selectedText = "", isSwiping = false;
-    var myVersion = null;
+var ROWS = 11, COLS = 32;
+var currentLayer = 'moved';
+var layouts = {};  // { original: config, moved: config }
+var movedSeats = {};
+var selected = { name: '', bg: '', color: '' };
 
-    function toggleSidebar() {
-      var s = document.getElementById('sidebar');
-      s.classList.toggle('collapsed');
-      document.querySelector('.toggle-btn').innerText = s.classList.contains('collapsed') ? "▶" : "◀";
-    }
+function toggleSidebar() {
+  var s = document.getElementById('sidebar');
+  s.classList.toggle('collapsed');
+  document.querySelector('.sidebar-toggle').innerText = s.classList.contains('collapsed') ? '▶' : '◀';
+}
 
-    function selectTag(el) {
-      document.querySelectorAll('.tag').forEach(t => t.classList.remove('selected-tag'));
-      if (selectedName === el.innerText) { selectedName = ""; return; }
-      selectedName = el.innerText;
-      var s = window.getComputedStyle(el);
-      selectedBg = s.backgroundColor; selectedText = s.color;
-      el.classList.add('selected-tag');
-    }
+function selectTag(el) {
+  if (currentLayer === 'original') return;
+  document.querySelectorAll('.tag').forEach(function(t) { t.classList.remove('selected'); });
 
-    function createGrid() {
-      var g = document.getElementById('grid');
-      g.innerHTML = ''; // 그리드 내부를 완전히 비움
-      for (var r = 1; r <= 10; r++) {
-        var colCount = 1;
-        layout.forEach(item => {
-          if (item === '통') {
-            var d = document.createElement('div');
-            var isP = (colCount === 25 && (r === 5 || r === 6));
-            d.className = isP ? 'cell pillar' : 'cell aisle'; d.innerText = isP ? '기' : '';
-            g.appendChild(d); colCount++;
-          } else {
-            for (var i = 0; i < item; i++) {
-              var d = document.createElement('div');
-              var addr = getLetter(colCount) + r;
-              var isP = (colCount >= 9 && colCount <= 13 && (r === 5 || r === 6)) || (colCount === 25 && (r === 5 || r === 6));
-              if (isP) { d.className = 'cell pillar'; d.innerText = '기'; }
-              else {
-                d.className = 'cell seat selectable'; d.dataset.addr = addr;
-                d.onmousedown = function(e){ isSwiping = true; process(this); };
-                d.onmouseenter = function(e){ if(isSwiping) process(this); };
-                d.ontouchstart = function(e){ isSwiping = true; process(this); };
-              }
-              g.appendChild(d); colCount++;
-            }
-          }
-        });
+  if (selected.name === el.innerText) {
+    selected = { name: '', bg: '', color: '' };
+    return;
+  }
+
+  var style = getComputedStyle(el);
+  selected = { name: el.innerText, bg: style.backgroundColor, color: style.color };
+  el.classList.add('selected');
+}
+
+function switchLayer(layer) {
+  currentLayer = layer;
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelector('.tab[data-layer="' + layer + '"]').classList.add('active');
+  selected = { name: '', bg: '', color: '' };
+  document.querySelectorAll('.tag').forEach(function(t) { t.classList.remove('selected'); });
+  render();
+}
+
+function render() {
+  var g = document.getElementById('grid');
+  g.innerHTML = '';
+
+  var config = layouts[currentLayer] || { rows: ROWS, aisles: [], pillars: [] };
+
+  // 통로 Set 생성 (새 형식: [행,열] 또는 이전 형식: 열번호)
+  var aisles = new Set();
+  (config.aisles || []).forEach(function(p) {
+    if (Array.isArray(p)) {
+      aisles.add(p[0] + '_' + p[1]);
+    } else {
+      // 이전 형식: 전체 열
+      for (var r = 1; r <= ROWS; r++) {
+        aisles.add(r + '_' + p);
       }
     }
+  });
 
-    function refreshData() {
-      document.getElementById('update-alert').style.display = 'none';
-      createGrid();
-      loadData();
-    }
+  var pillars = new Set((config.pillars || []).map(function(p) { return p[0] + '_' + p[1]; }));
 
-    function loadData() {
-      setLoading(true, "데이터 불러오는 중...");
-      google.script.run
-        .withSuccessHandler(function(map) {
-          // 데이터를 채우기 전에 그리드가 비어있다면 생성
-          if (!document.querySelector('.selectable')) createGrid();
+  // 그리드 열 수 = 32 (고정, 통로는 별도 셀이 아니라 같은 위치)
+  g.style.gridTemplateColumns = 'repeat(' + COLS + ', 24px)';
 
-          if (map) {
-            var tags = document.querySelectorAll('.tag');
-            var cells = document.querySelectorAll('.selectable');
-            cells.forEach(c => {
-              var name = map[c.dataset.addr];
-              if (name) {
-                c.innerText = name;
-                for (var t of tags) {
-                  if (t.innerText === name) {
-                    var s = window.getComputedStyle(t);
-                    c.style.backgroundColor = s.backgroundColor; c.style.color = s.color;
-                    break;
-                  }
-                }
-              } else {
-                c.innerText = "";
-                c.style.backgroundColor = "";
-              }
-            });
-          }
+  for (var r = 1; r <= ROWS; r++) {
+    for (var c = 1; c <= COLS; c++) {
+      var cell = document.createElement('div');
+      cell.className = 'cell';
+      var key = r + '_' + c;
 
-          google.script.run.withSuccessHandler(function(v) {
-            myVersion = v;
-            setLoading(false);
-          }).getServerVersion();
-        })
-        .withFailureHandler(function() {
-          setLoading(false);
-        })
-        .getCurrentSeatData();
-    }
-
-    function saveData() {
-      setLoading(true, "저장 중...");
-      var payload = {};
-      document.querySelectorAll('.selectable').forEach(c => {
-        if (c.innerText) { payload[c.dataset.addr] = c.innerText; }
-      });
-      google.script.run.withSuccessHandler(function(msg) {
-        alert(msg);
-        google.script.run.withSuccessHandler(v => myVersion = v).getServerVersion();
-        setLoading(false);
-      }).saveAllSeatData(payload);
-    }
-
-    function checkUpdate() {
-      if (isSwiping || document.getElementById('loading').style.display === 'flex' || myVersion === null) return;
-      google.script.run.withSuccessHandler(function(v) {
-        if (v !== myVersion && myVersion !== null) document.getElementById('update-alert').style.display = 'block';
-      }).getServerVersion();
-    }
-
-    function process(c) {
-      if (selectedName !== "") {
-        c.innerText = selectedName; c.style.backgroundColor = selectedBg; c.style.color = selectedText;
+      if (aisles.has(key)) {
+        cell.classList.add('cell-aisle');
+      } else if (pillars.has(key)) {
+        cell.classList.add('cell-pillar');
+        cell.innerText = '기';
       } else {
-        c.innerText = "";
-        c.style.backgroundColor = "";
+        cell.dataset.key = key;
+        if (currentLayer === 'moved') {
+          cell.classList.add('cell-seat', 'cell-selectable');
+          cell.onmousedown = function() { Drag.start(); paint(this); };
+          cell.onmouseenter = function() { if (Drag.active) paint(this); };
+          cell.ontouchstart = function() { Drag.start(); paint(this); };
+        } else {
+          cell.classList.add('cell-readonly');
+        }
       }
+      g.appendChild(cell);
     }
+  }
 
-    function setLoading(show, text) {
-      var loader = document.getElementById('loading');
-      if (text) loader.innerText = text;
-      loader.style.display = show ? 'flex' : 'none';
+  if (currentLayer === 'moved') applySeats();
+}
+
+function applySeats() {
+  var tags = document.querySelectorAll('.tag');
+  document.querySelectorAll('.cell-selectable').forEach(function(cell) {
+    var name = movedSeats[cell.dataset.key];
+    if (name) {
+      cell.innerText = name;
+      tags.forEach(function(t) {
+        if (t.innerText === name) {
+          var s = getComputedStyle(t);
+          cell.style.backgroundColor = s.backgroundColor;
+          cell.style.color = s.color;
+        }
+      });
     }
+  });
+}
 
-    // 전체 리셋 로직 수정: 새로고침 대신 그리드 재설정 및 데이터 로드
-    function resetAll() {
-      if (confirm("정말로 모든 데이터를 삭제하시겠습니까?")) {
-        setLoading(true, "초기화 중...");
-        google.script.run.withSuccessHandler(function(msg) {
-          alert(msg);
-          createGrid(); // 그리드 구조 다시 생성
-          loadData();   // 빈 데이터 상태로 다시 동기화
-        }).resetAll();
-      }
-    }
+function paint(cell) {
+  if (currentLayer !== 'moved') return;
+  if (selected.name) {
+    cell.innerText = selected.name;
+    cell.style.backgroundColor = selected.bg;
+    cell.style.color = selected.color;
+  } else {
+    cell.innerText = '';
+    cell.style.backgroundColor = '';
+    cell.style.color = '';
+  }
+}
 
-    function getLetter(col) {
-      var l = '', t;
-      while (col > 0) { t = (col - 1) % 26; l = String.fromCharCode(65 + t) + l; col = (col - t - 1) / 26; }
-      return l;
-    }
+function save() {
+  if (currentLayer !== 'moved') {
+    alert('이동 자리 탭에서만 저장할 수 있습니다.');
+    return;
+  }
+  App.showLoading('저장 중...');
+  var data = {};
+  document.querySelectorAll('.cell-selectable').forEach(function(c) {
+    if (c.innerText) data[c.dataset.key] = c.innerText;
+  });
+  movedSeats = data;
 
-    // 초기 실행
-    createGrid();
-    window.onload = loadData;
-    setInterval(checkUpdate, 15000);
+  google.script.run
+    .withSuccessHandler(function(msg) {
+      alert(msg);
+      App.updateVersion();
+      App.hideLoading();
+    })
+    .saveMovedSeats(data);
+}
 
-    document.addEventListener('mouseup', () => isSwiping = false);
-    document.addEventListener('touchend', () => isSwiping = false);
-    document.addEventListener('touchmove', (e) => {
-      if (isSwiping) {
-        var t = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
-        if (t && t.classList.contains('selectable')) process(t);
-      }
-    }, { passive: false });
+function reset() {
+  if (!confirm('이동 자리 배치를 모두 삭제하시겠습니까?')) return;
+  App.showLoading('초기화 중...');
+
+  google.script.run
+    .withSuccessHandler(function(msg) {
+      alert(msg);
+      movedSeats = {};
+      render();
+      App.hideLoading();
+    })
+    .resetMovedSeats();
+}
+
+function refresh() {
+  App.hideAlert();
+  load();
+}
+
+function load() {
+  App.showLoading('불러오는 중...');
+
+  // 원본 레이아웃 로드
+  google.script.run
+    .withSuccessHandler(function(originalConfig) {
+      layouts.original = originalConfig || { rows: 11, aisles: [], pillars: [] };
+
+      // 이동 레이아웃 로드
+      google.script.run
+        .withSuccessHandler(function(movedConfig) {
+          layouts.moved = movedConfig || { rows: 11, aisles: [], pillars: [] };
+
+          // 이동 좌석 배치 로드
+          google.script.run
+            .withSuccessHandler(function(seats) {
+              movedSeats = seats || {};
+              try {
+                render();
+              } catch (e) {
+                console.error('렌더링 오류:', e);
+              }
+              App.updateVersion();
+              App.hideLoading();
+            })
+            .withFailureHandler(function(e) {
+              console.error('좌석 로드 실패:', e);
+              try { render(); } catch (err) { console.error('렌더링 오류:', err); }
+              App.hideLoading();
+            })
+            .getMovedSeats();
+        })
+        .withFailureHandler(function(e) {
+          console.error('이동 레이아웃 로드 실패:', e);
+          layouts.moved = { rows: 11, aisles: [], pillars: [] };
+          try { render(); } catch (err) { console.error('렌더링 오류:', err); }
+          App.hideLoading();
+        })
+        .getLayout('moved');
+    })
+    .withFailureHandler(function(e) {
+      console.error('원본 레이아웃 로드 실패:', e);
+      layouts.original = { rows: 11, aisles: [], pillars: [] };
+      try { render(); } catch (err) { console.error('렌더링 오류:', err); }
+      App.hideLoading();
+    })
+    .getLayout('original');
+}
+
+// 터치 드래그
+document.addEventListener('touchmove', function(e) {
+  if (Drag.active && currentLayer === 'moved') {
+    var t = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+    if (t && t.classList.contains('cell-selectable')) paint(t);
+  }
+}, { passive: false });
+
+// 초기화
+window.onload = load;
+setInterval(function() { App.checkVersion(); }, 15000);
 </script>
 </body>
 </html>
