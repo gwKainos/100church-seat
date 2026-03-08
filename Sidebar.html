@@ -16,33 +16,51 @@
     }
     .sidebar.collapsed { margin-left: -150px; }
     .sidebar-toggle {
-      position: absolute; top: 50%; right: -24px; transform: translateY(-50%);
-      width: 24px; height: 56px; background: #333; color: #fff;
+      position: absolute; top: 8px; right: -24px;
+      width: 24px; height: 40px; background: #333; color: #fff;
       border: none; border-radius: 0 4px 4px 0; cursor: pointer; font-size: 11px;
     }
+    .sidebar-header { padding: 8px; border-bottom: 1px solid #ddd; }
     .sidebar-content { flex: 1; overflow-y: auto; padding: 8px; }
     .sidebar-footer { padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+
+    .layer-tabs { display: flex; gap: 4px; }
+    .layer-tab {
+      flex: 1; padding: 8px 4px; text-align: center; border: none; border-radius: 4px;
+      cursor: pointer; font-size: 11px; font-weight: 600; background: #e9ecef; color: #495057;
+    }
+    .layer-tab.active[data-layer="moved"] { background: #007bff; color: #fff; }
+    .layer-tab.active[data-layer="original"] { background: #28a745; color: #fff; }
 
     .grade-row { display: flex; gap: 4px; margin-bottom: 8px; }
     .grade-col { flex: 1; display: flex; flex-direction: column; gap: 4px; }
     .choir-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 
     /* 메인 영역 */
-    .main { flex: 1; display: flex; flex-direction: column; padding: 8px; overflow: hidden; }
-    .grid-area { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding-top: 8px; }
-    .grid { display: grid; gap: 2px; }
-    .grid .cell { width: 24px; height: 24px; }
-
-    /* 탭 색상 */
-    .tab.active[data-layer="original"] { background: #28a745; }
-    .tab.active[data-layer="moved"] { background: #007bff; }
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .grid-area {
+      flex: 1; overflow: hidden; display: flex;
+      align-items: center; justify-content: center;
+      padding: 8px;
+    }
+    .grid-wrapper {
+      transform-origin: center center;
+    }
+    .grid { display: grid; gap: 1px; }
+    .grid .cell { display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 600; border-radius: 1px; }
 
     @media (orientation: portrait) {
       .wrapper { flex-direction: column; }
-      .sidebar { width: 100%; flex-direction: row; height: auto; border-right: none; border-bottom: 1px solid #ddd; }
-      .sidebar.collapsed { margin-left: 0; margin-top: -120px; }
-      .sidebar-toggle { top: auto; bottom: -24px; right: 8px; width: 48px; height: 24px; border-radius: 0 0 4px 4px; transform: none; }
-      .sidebar-content { flex-direction: row; }
+      .sidebar {
+        width: 100%; height: auto; max-height: 45vh;
+        flex-direction: column; border-right: none; border-bottom: 1px solid #ddd;
+      }
+      .sidebar.collapsed { margin-left: 0; margin-top: -40vh; }
+      .sidebar-toggle {
+        top: auto; bottom: -24px; left: 8px; right: auto;
+        width: 48px; height: 24px; border-radius: 0 0 4px 4px; transform: none;
+      }
+      .grade-row { flex-direction: row; }
     }
   </style>
 </head>
@@ -54,6 +72,12 @@
 <div class="wrapper">
   <div class="sidebar" id="sidebar">
     <button class="sidebar-toggle" onclick="toggleSidebar()">◀</button>
+    <div class="sidebar-header">
+      <div class="layer-tabs">
+        <button class="layer-tab active" data-layer="moved" onclick="switchLayer('moved')">이동</button>
+        <button class="layer-tab" data-layer="original" onclick="switchLayer('original')">원본</button>
+      </div>
+    </div>
     <div class="sidebar-content">
       <div class="grade-row">
         <div class="grade-col">
@@ -85,28 +109,28 @@
   </div>
 
   <div class="main">
-    <div class="tabs">
-      <button class="tab active" data-layer="moved" onclick="switchLayer('moved')">이동 자리</button>
-      <button class="tab" data-layer="original" onclick="switchLayer('original')">원본 자리</button>
-    </div>
-    <div class="grid-area">
-      <div class="grid" id="grid"></div>
+    <div class="grid-area" id="gridArea">
+      <div class="grid-wrapper" id="gridWrapper">
+        <div class="grid" id="grid"></div>
+      </div>
     </div>
   </div>
 </div>
 
 <?!= include('Utils'); ?>
 <script>
-var ROWS = 11, COLS = 32;
+var ROWS = 15, COLS = 32;
 var currentLayer = 'moved';
-var layouts = {};  // { original: config, moved: config }
+var layouts = {};
 var movedSeats = {};
 var selected = { name: '', bg: '', color: '' };
+var cellSize = 20;
 
 function toggleSidebar() {
   var s = document.getElementById('sidebar');
   s.classList.toggle('collapsed');
   document.querySelector('.sidebar-toggle').innerText = s.classList.contains('collapsed') ? '▶' : '◀';
+  setTimeout(resizeGrid, 350);
 }
 
 function selectTag(el) {
@@ -126,11 +150,32 @@ function selectTag(el) {
 
 function switchLayer(layer) {
   currentLayer = layer;
-  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
-  document.querySelector('.tab[data-layer="' + layer + '"]').classList.add('active');
+  document.querySelectorAll('.layer-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelector('.layer-tab[data-layer="' + layer + '"]').classList.add('active');
   selected = { name: '', bg: '', color: '' };
   document.querySelectorAll('.tag').forEach(function(t) { t.classList.remove('selected'); });
   render();
+}
+
+function resizeGrid() {
+  var area = document.getElementById('gridArea');
+  var availWidth = area.clientWidth - 16;
+  var availHeight = area.clientHeight - 16;
+
+  var cellW = Math.floor(availWidth / COLS);
+  var cellH = Math.floor(availHeight / ROWS);
+  cellSize = Math.max(12, Math.min(cellW, cellH, 30));
+
+  var fontSize = Math.max(6, Math.floor(cellSize * 0.4));
+
+  var g = document.getElementById('grid');
+  g.style.gridTemplateColumns = 'repeat(' + COLS + ', ' + cellSize + 'px)';
+
+  document.querySelectorAll('.grid .cell').forEach(function(cell) {
+    cell.style.width = cellSize + 'px';
+    cell.style.height = cellSize + 'px';
+    cell.style.fontSize = fontSize + 'px';
+  });
 }
 
 function render() {
@@ -139,13 +184,11 @@ function render() {
 
   var config = layouts[currentLayer] || { rows: ROWS, aisles: [], pillars: [] };
 
-  // 통로 Set 생성 (새 형식: [행,열] 또는 이전 형식: 열번호)
   var aisles = new Set();
   (config.aisles || []).forEach(function(p) {
     if (Array.isArray(p)) {
       aisles.add(p[0] + '_' + p[1]);
     } else {
-      // 이전 형식: 전체 열
       for (var r = 1; r <= ROWS; r++) {
         aisles.add(r + '_' + p);
       }
@@ -153,9 +196,11 @@ function render() {
   });
 
   var pillars = new Set((config.pillars || []).map(function(p) { return p[0] + '_' + p[1]; }));
-
-  // 그리드 열 수 = 32 (고정, 통로는 별도 셀이 아니라 같은 위치)
-  g.style.gridTemplateColumns = 'repeat(' + COLS + ', 24px)';
+  var pulpits = new Set((config.pulpits || []).map(function(p) { return p[0] + '_' + p[1]; }));
+  var stands = new Set((config.stands || []).map(function(p) { return p[0] + '_' + p[1]; }));
+  var tvs = new Set((config.tvs || []).map(function(p) { return p[0] + '_' + p[1]; }));
+  var mics = new Set((config.mics || []).map(function(p) { return p[0] + '_' + p[1]; }));
+  var pianos = new Set((config.pianos || []).map(function(p) { return p[0] + '_' + p[1]; }));
 
   for (var r = 1; r <= ROWS; r++) {
     for (var c = 1; c <= COLS; c++) {
@@ -168,6 +213,21 @@ function render() {
       } else if (pillars.has(key)) {
         cell.classList.add('cell-pillar');
         cell.innerText = '기';
+      } else if (pulpits.has(key)) {
+        cell.classList.add('cell-pulpit');
+        cell.innerText = '강';
+      } else if (stands.has(key)) {
+        cell.classList.add('cell-stand');
+        cell.innerText = '보';
+      } else if (tvs.has(key)) {
+        cell.classList.add('cell-tv');
+        cell.innerText = 'TV';
+      } else if (mics.has(key)) {
+        cell.classList.add('cell-mic');
+        cell.innerText = '마';
+      } else if (pianos.has(key)) {
+        cell.classList.add('cell-piano');
+        cell.innerText = '피';
       } else {
         cell.dataset.key = key;
         if (currentLayer === 'moved') {
@@ -183,6 +243,7 @@ function render() {
     }
   }
 
+  resizeGrid();
   if (currentLayer === 'moved') applySeats();
 }
 
@@ -260,17 +321,14 @@ function refresh() {
 function load() {
   App.showLoading('불러오는 중...');
 
-  // 원본 레이아웃 로드
   google.script.run
     .withSuccessHandler(function(originalConfig) {
-      layouts.original = originalConfig || { rows: 11, aisles: [], pillars: [] };
+      layouts.original = originalConfig || { rows: 15, aisles: [], pillars: [] };
 
-      // 이동 레이아웃 로드
       google.script.run
         .withSuccessHandler(function(movedConfig) {
-          layouts.moved = movedConfig || { rows: 11, aisles: [], pillars: [] };
+          layouts.moved = movedConfig || { rows: 15, aisles: [], pillars: [] };
 
-          // 이동 좌석 배치 로드
           google.script.run
             .withSuccessHandler(function(seats) {
               movedSeats = seats || {};
@@ -291,7 +349,7 @@ function load() {
         })
         .withFailureHandler(function(e) {
           console.error('이동 레이아웃 로드 실패:', e);
-          layouts.moved = { rows: 11, aisles: [], pillars: [] };
+          layouts.moved = { rows: 15, aisles: [], pillars: [] };
           try { render(); } catch (err) { console.error('렌더링 오류:', err); }
           App.hideLoading();
         })
@@ -299,7 +357,7 @@ function load() {
     })
     .withFailureHandler(function(e) {
       console.error('원본 레이아웃 로드 실패:', e);
-      layouts.original = { rows: 11, aisles: [], pillars: [] };
+      layouts.original = { rows: 15, aisles: [], pillars: [] };
       try { render(); } catch (err) { console.error('렌더링 오류:', err); }
       App.hideLoading();
     })
@@ -314,7 +372,15 @@ document.addEventListener('touchmove', function(e) {
   }
 }, { passive: false });
 
-// 초기화
+// 화면 크기 변경 시 그리드 리사이즈
+window.addEventListener('resize', function() {
+  setTimeout(resizeGrid, 100);
+});
+
+window.addEventListener('orientationchange', function() {
+  setTimeout(resizeGrid, 300);
+});
+
 window.onload = load;
 setInterval(function() { App.checkVersion(); }, 15000);
 </script>

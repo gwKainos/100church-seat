@@ -16,8 +16,8 @@
     }
     .sidebar.collapsed { margin-left: -120px; }
     .sidebar-toggle {
-      position: absolute; top: 50%; right: -24px; transform: translateY(-50%);
-      width: 24px; height: 56px; background: #333; color: #fff;
+      position: absolute; top: 8px; right: -24px;
+      width: 24px; height: 40px; background: #333; color: #fff;
       border: none; border-radius: 0 4px 4px 0; cursor: pointer; font-size: 11px;
     }
     .sidebar-content { flex: 1; overflow-y: auto; padding: 8px; }
@@ -44,7 +44,7 @@
       .wrapper { flex-direction: column; }
       .sidebar { width: 100%; flex-direction: row; height: auto; border-right: none; border-bottom: 1px solid #ddd; }
       .sidebar.collapsed { margin-left: 0; margin-top: -100px; }
-      .sidebar-toggle { top: auto; bottom: -24px; right: 8px; width: 48px; height: 24px; border-radius: 0 0 4px 4px; transform: none; }
+      .sidebar-toggle { top: auto; bottom: -24px; left: 8px; right: auto; width: 48px; height: 24px; border-radius: 0 0 4px 4px; transform: none; }
       .sidebar-content { flex-direction: row; align-items: center; }
       .tool-section { margin-bottom: 0; margin-right: 12px; }
       .tool-list { flex-direction: row; }
@@ -65,6 +65,11 @@
           <div class="tool active" data-type="seat" onclick="selectTool('seat')">좌석</div>
           <div class="tool" data-type="aisle" onclick="selectTool('aisle')">통로</div>
           <div class="tool" data-type="pillar" onclick="selectTool('pillar')">기둥</div>
+          <div class="tool" data-type="pulpit" onclick="selectTool('pulpit')">강대상</div>
+          <div class="tool" data-type="stand" onclick="selectTool('stand')">보면대</div>
+          <div class="tool" data-type="tv" onclick="selectTool('tv')">TV</div>
+          <div class="tool" data-type="mic" onclick="selectTool('mic')">마이크</div>
+          <div class="tool" data-type="piano" onclick="selectTool('piano')">피아노</div>
         </div>
       </div>
     </div>
@@ -88,7 +93,7 @@
 
 <?!= include('Utils'); ?>
 <script>
-var ROWS = 11, COLS = 32;
+var ROWS = 15, COLS = 32;
 var currentLayer = 'moved';
 var currentTool = 'seat';
 var gridData = {}; // { original: 2D array, moved: 2D array }
@@ -162,10 +167,15 @@ function applyTool(cell) {
 
 function updateCellStyle(cell, type) {
   cell.className = 'cell';
+  cell.innerText = '';
   if (type === 'seat') cell.classList.add('cell-seat');
   else if (type === 'aisle') cell.classList.add('cell-aisle');
-  else if (type === 'pillar') { cell.classList.add('cell-pillar'); cell.innerText = '기'; return; }
-  cell.innerText = '';
+  else if (type === 'pillar') { cell.classList.add('cell-pillar'); cell.innerText = '기'; }
+  else if (type === 'pulpit') { cell.classList.add('cell-pulpit'); cell.innerText = '강'; }
+  else if (type === 'stand') { cell.classList.add('cell-stand'); cell.innerText = '보'; }
+  else if (type === 'tv') { cell.classList.add('cell-tv'); cell.innerText = 'TV'; }
+  else if (type === 'mic') { cell.classList.add('cell-mic'); cell.innerText = '마'; }
+  else if (type === 'piano') { cell.classList.add('cell-piano'); cell.innerText = '피'; }
 }
 
 function renderGrid() {
@@ -201,6 +211,36 @@ function applyConfigToGrid(config, layer) {
   (config.pillars || []).forEach(function(p) {
     var pr = p[0] - 1, pc = p[1] - 1;
     if (pr >= 0 && pr < ROWS && pc >= 0 && pc < COLS) data[pr][pc] = 'pillar';
+  });
+
+  // 강대상 적용
+  (config.pulpits || []).forEach(function(p) {
+    var pr = p[0] - 1, pc = p[1] - 1;
+    if (pr >= 0 && pr < ROWS && pc >= 0 && pc < COLS) data[pr][pc] = 'pulpit';
+  });
+
+  // 보면대 적용
+  (config.stands || []).forEach(function(p) {
+    var pr = p[0] - 1, pc = p[1] - 1;
+    if (pr >= 0 && pr < ROWS && pc >= 0 && pc < COLS) data[pr][pc] = 'stand';
+  });
+
+  // TV 적용
+  (config.tvs || []).forEach(function(p) {
+    var pr = p[0] - 1, pc = p[1] - 1;
+    if (pr >= 0 && pr < ROWS && pc >= 0 && pc < COLS) data[pr][pc] = 'tv';
+  });
+
+  // 마이크 적용
+  (config.mics || []).forEach(function(p) {
+    var pr = p[0] - 1, pc = p[1] - 1;
+    if (pr >= 0 && pr < ROWS && pc >= 0 && pc < COLS) data[pr][pc] = 'mic';
+  });
+
+  // 피아노 적용
+  (config.pianos || []).forEach(function(p) {
+    var pr = p[0] - 1, pc = p[1] - 1;
+    if (pr >= 0 && pr < ROWS && pc >= 0 && pc < COLS) data[pr][pc] = 'piano';
   });
 }
 
@@ -244,21 +284,22 @@ function save() {
 
   var data = gridData[currentLayer];
 
-  var aisles = [];
+  var aisles = [], pillars = [], pulpits = [], stands = [], tvs = [], mics = [], pianos = [];
   for (var r = 0; r < ROWS; r++) {
     for (var c = 0; c < COLS; c++) {
-      if (data[r][c] === 'aisle') aisles.push([r + 1, c + 1]);
+      var type = data[r][c];
+      var pos = [r + 1, c + 1];
+      if (type === 'aisle') aisles.push(pos);
+      else if (type === 'pillar') pillars.push(pos);
+      else if (type === 'pulpit') pulpits.push(pos);
+      else if (type === 'stand') stands.push(pos);
+      else if (type === 'tv') tvs.push(pos);
+      else if (type === 'mic') mics.push(pos);
+      else if (type === 'piano') pianos.push(pos);
     }
   }
 
-  var pillars = [];
-  for (var r = 0; r < ROWS; r++) {
-    for (var c = 0; c < COLS; c++) {
-      if (data[r][c] === 'pillar') pillars.push([r + 1, c + 1]);
-    }
-  }
-
-  var config = { rows: ROWS, aisles: aisles, pillars: pillars };
+  var config = { rows: ROWS, aisles: aisles, pillars: pillars, pulpits: pulpits, stands: stands, tvs: tvs, mics: mics, pianos: pianos };
 
   google.script.run
     .withSuccessHandler(function(msg) {
