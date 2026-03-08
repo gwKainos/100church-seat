@@ -53,7 +53,12 @@ function getClassData() {
   return {
     grade5: getClassesByGrade(5),
     grade6: getClassesByGrade(6),
-    choir: ['Sop', 'Alt', 'Ten', 'Bas']
+    choir: [
+      { name: 'Soprano', code: 'S' },
+      { name: 'Alto', code: 'A' },
+      { name: 'Tenor', code: 'T' },
+      { name: 'Bass', code: 'B' }
+    ]
   };
 }
 

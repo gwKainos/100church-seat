@@ -73,7 +73,7 @@
       <div class="label">성가대</div>
       <div class="choir-grid">
         <? for (var k = 0; k < classes.choir.length; k++) { ?>
-        <div class="tag tag-choir" onclick="selectTag(this)"><?= classes.choir[k] ?></div>
+        <div class="tag tag-choir" data-code="<?= classes.choir[k].code ?>" onclick="selectTag(this)"><?= classes.choir[k].name ?></div>
         <? } ?>
       </div>
     </div>
@@ -113,13 +113,14 @@ function selectTag(el) {
   if (currentLayer === 'original') return;
   document.querySelectorAll('.tag').forEach(function(t) { t.classList.remove('selected'); });
 
-  if (selected.name === el.innerText) {
+  var code = el.dataset.code || el.innerText;
+  if (selected.name === code) {
     selected = { name: '', bg: '', color: '' };
     return;
   }
 
   var style = getComputedStyle(el);
-  selected = { name: el.innerText, bg: style.backgroundColor, color: style.color };
+  selected = { name: code, bg: style.backgroundColor, color: style.color };
   el.classList.add('selected');
 }
 
@@ -192,7 +193,8 @@ function applySeats() {
     if (name) {
       cell.innerText = name;
       tags.forEach(function(t) {
-        if (t.innerText === name) {
+        var code = t.dataset.code || t.innerText;
+        if (code === name) {
           var s = getComputedStyle(t);
           cell.style.backgroundColor = s.backgroundColor;
           cell.style.color = s.color;

@@ -2,62 +2,89 @@
 <html>
 <head>
   <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <?!= include('Styles'); ?>
   <style>
-    body { background: #f5f5f5; padding: 12px; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .header h1 { font-size: 18px; color: #333; margin: 0; }
-    .header-btns { display: flex; gap: 8px; }
+    body { overflow: hidden; touch-action: none; }
+    .wrapper { display: flex; height: 100vh; }
 
-    .tabs { margin-bottom: 12px; }
-    .tab { padding: 10px 20px; font-size: 13px; }
-    .tab.active.original { background: #28a745; }
-    .tab.active.moved { background: #007bff; }
+    /* 사이드바 */
+    .sidebar {
+      width: 120px; background: #f8f9fa; border-right: 1px solid #ddd;
+      display: flex; flex-direction: column; flex-shrink: 0;
+      transition: margin-left 0.3s; position: relative;
+    }
+    .sidebar.collapsed { margin-left: -120px; }
+    .sidebar-toggle {
+      position: absolute; top: 50%; right: -24px; transform: translateY(-50%);
+      width: 24px; height: 56px; background: #333; color: #fff;
+      border: none; border-radius: 0 4px 4px 0; cursor: pointer; font-size: 11px;
+    }
+    .sidebar-content { flex: 1; overflow-y: auto; padding: 8px; }
+    .sidebar-footer { padding: 8px; display: flex; flex-direction: column; gap: 4px; }
 
-    .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
-    .toolbar-label { font-size: 12px; color: #666; }
+    .tool-section { margin-bottom: 12px; }
+    .tool-list { display: flex; flex-direction: column; gap: 4px; }
+    .tool { padding: 10px 8px; text-align: center; }
 
-    .grid-box { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 12px; overflow: auto; display: inline-block; }
+    /* 메인 영역 */
+    .main { flex: 1; display: flex; flex-direction: column; padding: 8px; overflow: hidden; }
+    .grid-area { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: flex-start; padding-top: 8px; }
     .grid { display: grid; gap: 2px; width: fit-content; }
     .grid .cell { width: 26px; height: 26px; cursor: pointer; }
     .col-header, .row-header { background: #f0f0f0; color: #888; font-size: 8px; cursor: default; }
 
-    .info { margin-top: 10px; font-size: 11px; color: #888; }
-    .layer-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; color: #fff; margin-left: 8px; }
-    .layer-badge.original { background: #28a745; }
-    .layer-badge.moved { background: #007bff; }
+    /* 탭 색상 */
+    .tab.active[data-layer="original"] { background: #28a745; }
+    .tab.active[data-layer="moved"] { background: #007bff; }
+
+    .info { font-size: 11px; color: #888; padding: 4px 0; }
+
+    @media (orientation: portrait) {
+      .wrapper { flex-direction: column; }
+      .sidebar { width: 100%; flex-direction: row; height: auto; border-right: none; border-bottom: 1px solid #ddd; }
+      .sidebar.collapsed { margin-left: 0; margin-top: -100px; }
+      .sidebar-toggle { top: auto; bottom: -24px; right: 8px; width: 48px; height: 24px; border-radius: 0 0 4px 4px; transform: none; }
+      .sidebar-content { flex-direction: row; align-items: center; }
+      .tool-section { margin-bottom: 0; margin-right: 12px; }
+      .tool-list { flex-direction: row; }
+    }
   </style>
 </head>
 <body>
 
 <div id="loading" class="loading-overlay">불러오는 중...</div>
 
-<div class="header">
-  <h1>좌석 배치 관리자 <span id="layerBadge" class="layer-badge moved">이동</span></h1>
-  <div class="header-btns">
-    <button class="btn btn-secondary" onclick="App.goTo()">돌아가기</button>
-    <button class="btn btn-success" onclick="save()">저장</button>
+<div class="wrapper">
+  <div class="sidebar" id="sidebar">
+    <button class="sidebar-toggle" onclick="toggleSidebar()">◀</button>
+    <div class="sidebar-content">
+      <div class="tool-section">
+        <div class="label">도구</div>
+        <div class="tool-list">
+          <div class="tool active" data-type="seat" onclick="selectTool('seat')">좌석</div>
+          <div class="tool" data-type="aisle" onclick="selectTool('aisle')">통로</div>
+          <div class="tool" data-type="pillar" onclick="selectTool('pillar')">기둥</div>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <button class="btn btn-success" onclick="save()">저장</button>
+      <button class="btn btn-secondary" onclick="App.goTo()">돌아가기</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="tabs">
+      <button class="tab active" data-layer="moved" onclick="switchLayer('moved')">이동 자리</button>
+      <button class="tab" data-layer="original" onclick="switchLayer('original')">원본 자리</button>
+    </div>
+    <div class="grid-area">
+      <div class="grid" id="grid"></div>
+    </div>
+    <div class="info">클릭/드래그로 셀 타입 변경</div>
   </div>
 </div>
-
-<div class="tabs">
-  <button class="tab moved active" data-layer="moved" onclick="switchLayer('moved')">이동 자리</button>
-  <button class="tab original" data-layer="original" onclick="switchLayer('original')">원본 자리</button>
-</div>
-
-<div class="toolbar">
-  <span class="toolbar-label">도구:</span>
-  <div class="tool active" data-type="seat" onclick="selectTool('seat')">좌석</div>
-  <div class="tool" data-type="aisle" onclick="selectTool('aisle')">통로</div>
-  <div class="tool" data-type="pillar" onclick="selectTool('pillar')">기둥</div>
-</div>
-
-<div class="grid-box">
-  <div class="grid" id="grid"></div>
-</div>
-
-<div class="info">클릭/드래그로 셀 타입 변경 | 원본과 이동 자리의 레이아웃을 각각 설정하세요</div>
 
 <?!= include('Utils'); ?>
 <script>
@@ -65,6 +92,12 @@ var ROWS = 11, COLS = 32;
 var currentLayer = 'moved';
 var currentTool = 'seat';
 var gridData = {}; // { original: 2D array, moved: 2D array }
+
+function toggleSidebar() {
+  var s = document.getElementById('sidebar');
+  s.classList.toggle('collapsed');
+  document.querySelector('.sidebar-toggle').innerText = s.classList.contains('collapsed') ? '▶' : '◀';
+}
 
 function initGridData() {
   var arr = [];
@@ -79,11 +112,6 @@ function switchLayer(layer) {
   currentLayer = layer;
   document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
   document.querySelector('.tab[data-layer="' + layer + '"]').classList.add('active');
-
-  var badge = document.getElementById('layerBadge');
-  badge.className = 'layer-badge ' + layer;
-  badge.innerText = layer === 'moved' ? '이동' : '원본';
-
   renderGrid();
 }
 
@@ -160,11 +188,9 @@ function applyConfigToGrid(config, layer) {
   // 통로 적용 (개별 셀 [행, 열] 형식)
   (config.aisles || []).forEach(function(p) {
     if (Array.isArray(p)) {
-      // 새 형식: [행, 열]
       var pr = p[0] - 1, pc = p[1] - 1;
       if (pr >= 0 && pr < ROWS && pc >= 0 && pc < COLS) data[pr][pc] = 'aisle';
     } else {
-      // 이전 형식: 열 번호만 (전체 열)
       for (var r = 0; r < ROWS; r++) {
         if (p > 0 && p <= COLS) data[r][p - 1] = 'aisle';
       }
@@ -181,16 +207,13 @@ function applyConfigToGrid(config, layer) {
 function load() {
   App.showLoading('불러오는 중...');
 
-  // gridData 초기화
   gridData.original = initGridData();
   gridData.moved = initGridData();
 
-  // 원본 레이아웃 로드
   google.script.run
     .withSuccessHandler(function(originalConfig) {
       applyConfigToGrid(originalConfig, 'original');
 
-      // 이동 레이아웃 로드
       google.script.run
         .withSuccessHandler(function(movedConfig) {
           try {
@@ -221,7 +244,6 @@ function save() {
 
   var data = gridData[currentLayer];
 
-  // aisles: 개별 통로 위치 [행, 열]
   var aisles = [];
   for (var r = 0; r < ROWS; r++) {
     for (var c = 0; c < COLS; c++) {
@@ -229,7 +251,6 @@ function save() {
     }
   }
 
-  // pillars: 개별 기둥 위치 [행, 열]
   var pillars = [];
   for (var r = 0; r < ROWS; r++) {
     for (var c = 0; c < COLS; c++) {
@@ -251,7 +272,6 @@ function save() {
     .saveLayout(currentLayer, config);
 }
 
-// 초기화
 createGrid();
 window.onload = load;
 </script>
