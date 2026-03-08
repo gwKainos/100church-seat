@@ -60,20 +60,20 @@
           <div class="label">5학년</div>
           <? var classes = getClassData(); ?>
           <? for (var i = 0; i < classes.grade5.length; i++) { ?>
-          <div class="tag tag-5" onclick="selectTag(this)"><?= classes.grade5[i] ?></div>
+          <div class="tag tag-5-<?= i + 1 ?>" onclick="selectTag(this)"><?= classes.grade5[i] ?></div>
           <? } ?>
         </div>
         <div class="grade-col">
           <div class="label">6학년</div>
           <? for (var j = 0; j < classes.grade6.length; j++) { ?>
-          <div class="tag tag-6" onclick="selectTag(this)"><?= classes.grade6[j] ?></div>
+          <div class="tag tag-6-<?= j + 1 ?>" onclick="selectTag(this)"><?= classes.grade6[j] ?></div>
           <? } ?>
         </div>
       </div>
       <div class="label">성가대</div>
       <div class="choir-grid">
         <? for (var k = 0; k < classes.choir.length; k++) { ?>
-        <div class="tag tag-choir" data-code="<?= classes.choir[k].code ?>" onclick="selectTag(this)"><?= classes.choir[k].name ?></div>
+        <div class="tag tag-choir-<?= classes.choir[k].code ?>" data-code="<?= classes.choir[k].code ?>" onclick="selectTag(this)"><?= classes.choir[k].name ?></div>
         <? } ?>
       </div>
     </div>
