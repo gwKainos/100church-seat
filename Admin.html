@@ -10,11 +10,11 @@
 
     /* 사이드바 */
     .sidebar {
-      width: 120px; background: #f8f9fa; border-right: 1px solid #ddd;
+      width: 160px; background: #f8f9fa; border-right: 1px solid #ddd;
       display: flex; flex-direction: column; flex-shrink: 0;
       transition: margin-left 0.3s; position: relative;
     }
-    .sidebar.collapsed { margin-left: -120px; }
+    .sidebar.collapsed { margin-left: -160px; }
     .sidebar-toggle {
       position: absolute; top: 8px; right: -24px;
       width: 24px; height: 40px; background: #333; color: #fff;
@@ -33,15 +33,34 @@
     .layer-tab.active[data-layer="original"] { background: #28a745; color: #fff; }
 
     .tool-section { margin-bottom: 12px; }
-    .tool-list { display: flex; flex-direction: column; gap: 4px; }
-    .tool { padding: 10px 8px; text-align: center; }
+    .tool-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; }
+    .tool { padding: 8px 4px; text-align: center; font-size: 11px; }
+
+    .student-section { margin-top: 8px; }
+    .student-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; max-height: 300px; overflow-y: auto; }
+    .student {
+      padding: 6px 2px; text-align: center; font-size: 10px; font-weight: 600;
+      background: #e8f5e9; border: 2px solid #c8e6c9; border-radius: 3px; cursor: pointer;
+    }
+    .student:hover { background: #c8e6c9; }
+    .student.active { border-color: #007bff; background: #c8e6c9; }
 
     /* 메인 영역 */
     .main { flex: 1; display: flex; flex-direction: column; padding: 8px; overflow: hidden; }
     .grid-area { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: flex-start; padding-top: 8px; }
     .grid { display: grid; gap: 2px; width: fit-content; }
-    .grid .cell { width: 26px; height: 26px; cursor: pointer; }
-    .col-header, .row-header { background: #f0f0f0; color: #888; font-size: 8px; cursor: default; }
+    .grid .cell { width: 36px; height: 36px; cursor: pointer; font-size: 10px; }
+    .col-header, .row-header { background: #f0f0f0; color: #888; font-size: 10px; cursor: default; }
+
+    @media (max-width: 1200px) {
+      .grid .cell { width: 30px; height: 30px; font-size: 9px; }
+      .col-header, .row-header { font-size: 9px; }
+    }
+
+    @media (max-width: 900px) {
+      .grid .cell { width: 26px; height: 26px; font-size: 8px; }
+      .col-header, .row-header { font-size: 8px; }
+    }
 
     .info { font-size: 11px; color: #888; padding: 4px 0; }
 
@@ -83,6 +102,10 @@
           <div class="tool" data-type="piano" onclick="selectTool('piano')">피아노</div>
         </div>
       </div>
+      <div class="student-section">
+        <div class="label">성가대 (고정석)</div>
+        <div class="student-grid" id="studentGrid"></div>
+      </div>
     </div>
     <div class="sidebar-footer">
       <button class="btn btn-success" onclick="save()">저장</button>
@@ -103,7 +126,16 @@
   var ROWS = 15, COLS = 32;
   var currentLayer = 'moved';
   var currentTool = 'seat';
+  var currentStudent = '';
   var gridData = {}; // { original: 2D array, moved: 2D array }
+
+  // 성가대 학생 명단
+  var CHOIR_STUDENTS = [
+    '유주', '하린', '해나', '소윤', '지우', '희서', '세은', '아인', '소유', '지윤',
+    '시아', '하민', '다현', '민아', '서인', '서아', '예온', '나윤', '하진', '선우',
+    '상준', '은재', '연우', '솔', '현지', '서율', '담', '하루', '은유', '서현',
+    '건', '윤', '예원', '주혜', '희우', '성준', '노아'
+  ];
 
   function toggleSidebar() {
     var s = document.getElementById('sidebar');
@@ -129,14 +161,38 @@
 
   function selectTool(type) {
     currentTool = type;
+    currentStudent = '';
     document.querySelectorAll('.tool').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.student').forEach(function(s) { s.classList.remove('active'); });
     document.querySelector('.tool[data-type="' + type + '"]').classList.add('active');
+  }
+
+  function selectStudent(name, el) {
+    currentStudent = name;
+    currentTool = '';
+    document.querySelectorAll('.tool').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.student').forEach(function(s) { s.classList.remove('active'); });
+    el.classList.add('active');
+  }
+
+  function renderStudentGrid() {
+    var grid = document.getElementById('studentGrid');
+    grid.innerHTML = '';
+    CHOIR_STUDENTS.forEach(function(name) {
+      var el = document.createElement('div');
+      el.className = 'student';
+      el.innerText = name;
+      el.onclick = function() { selectStudent(name, el); };
+      grid.appendChild(el);
+    });
   }
 
   function createGrid() {
     var g = document.getElementById('grid');
     g.innerHTML = '';
-    g.style.gridTemplateColumns = '28px repeat(' + COLS + ', 26px)';
+    var cellSize = window.innerWidth > 1200 ? 36 : (window.innerWidth > 900 ? 30 : 26);
+    var headerSize = cellSize + 2;
+    g.style.gridTemplateColumns = headerSize + 'px repeat(' + COLS + ', ' + cellSize + 'px)';
 
     // 헤더 행
     g.appendChild(createCell('', 'col-header'));
@@ -168,14 +224,23 @@
   function applyTool(cell) {
     var r = parseInt(cell.dataset.row) - 1;
     var c = parseInt(cell.dataset.col) - 1;
-    gridData[currentLayer][r][c] = currentTool;
-    updateCellStyle(cell, currentTool);
+    if (currentStudent) {
+      gridData[currentLayer][r][c] = 'student:' + currentStudent;
+      updateCellStyle(cell, 'student:' + currentStudent);
+    } else if (currentTool) {
+      gridData[currentLayer][r][c] = currentTool;
+      updateCellStyle(cell, currentTool);
+    }
   }
 
   function updateCellStyle(cell, type) {
     cell.className = 'cell';
     cell.innerText = '';
-    if (type === 'seat') cell.classList.add('cell-seat');
+    if (type.indexOf('student:') === 0) {
+      var name = type.substring(8);
+      cell.classList.add('cell-student');
+      cell.innerText = name;
+    } else if (type === 'seat') cell.classList.add('cell-seat');
     else if (type === 'aisle') cell.classList.add('cell-aisle');
     else if (type === 'pillar') { cell.classList.add('cell-pillar'); cell.innerText = '기'; }
     else if (type === 'pulpit') { cell.classList.add('cell-pulpit'); cell.innerText = '강'; }
@@ -249,6 +314,12 @@
       var pr = p[0] - 1, pc = p[1] - 1;
       if (pr >= 0 && pr < ROWS && pc >= 0 && pc < COLS) data[pr][pc] = 'piano';
     });
+
+    // 학생 적용
+    (config.students || []).forEach(function(s) {
+      var pr = s.pos[0] - 1, pc = s.pos[1] - 1;
+      if (pr >= 0 && pr < ROWS && pc >= 0 && pc < COLS) data[pr][pc] = 'student:' + s.name;
+    });
   }
 
   function load() {
@@ -291,7 +362,7 @@
 
     var data = gridData[currentLayer];
 
-    var aisles = [], pillars = [], pulpits = [], stands = [], tvs = [], mics = [], pianos = [];
+    var aisles = [], pillars = [], pulpits = [], stands = [], tvs = [], mics = [], pianos = [], students = [];
     for (var r = 0; r < ROWS; r++) {
       for (var c = 0; c < COLS; c++) {
         var type = data[r][c];
@@ -303,10 +374,13 @@
         else if (type === 'tv') tvs.push(pos);
         else if (type === 'mic') mics.push(pos);
         else if (type === 'piano') pianos.push(pos);
+        else if (type.indexOf('student:') === 0) {
+          students.push({ pos: pos, name: type.substring(8) });
+        }
       }
     }
 
-    var config = { rows: ROWS, aisles: aisles, pillars: pillars, pulpits: pulpits, stands: stands, tvs: tvs, mics: mics, pianos: pianos };
+    var config = { rows: ROWS, aisles: aisles, pillars: pillars, pulpits: pulpits, stands: stands, tvs: tvs, mics: mics, pianos: pianos, students: students };
 
     google.script.run
       .withSuccessHandler(function(msg) {
@@ -321,7 +395,13 @@
   }
 
   createGrid();
+  renderStudentGrid();
   window.onload = load;
+
+  window.addEventListener('resize', function() {
+    createGrid();
+    renderGrid();
+  });
 </script>
 </body>
 </html>

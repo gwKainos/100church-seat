@@ -45,9 +45,10 @@
     }
     .grid-wrapper {
       transform-origin: center center;
+      overflow: hidden;
     }
-    .grid { display: grid; gap: 1px; }
-    .grid .cell { display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 600; border-radius: 1px; }
+    .grid { display: grid; gap: 2px; padding: 8px; background: #fafafa; border-radius: 6px; }
+    .grid .cell { display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 600; border-radius: 3px; }
 
     @media (orientation: portrait) {
       .wrapper { flex-direction: column; }
@@ -159,14 +160,22 @@
 
   function resizeGrid() {
     var area = document.getElementById('gridArea');
-    var availWidth = area.clientWidth - 16;
-    var availHeight = area.clientHeight - 16;
+    var isLandscape = window.innerWidth > window.innerHeight;
+    var paddingY = isLandscape ? 16 : 48;
+
+    // 그리드 padding(8*2) + gap(2*(COLS-1)) + 여유공간 고려
+    var gridPadding = 16;
+    var gapTotal = 2 * (COLS - 1);
+    var gapTotalY = 2 * (ROWS - 1);
+
+    var availWidth = area.clientWidth - gridPadding - gapTotal - 32;
+    var availHeight = area.clientHeight - gridPadding - gapTotalY - paddingY;
 
     var cellW = Math.floor(availWidth / COLS);
     var cellH = Math.floor(availHeight / ROWS);
-    cellSize = Math.max(12, Math.min(cellW, cellH, 30));
+    cellSize = Math.max(10, Math.min(cellW, cellH));
 
-    var fontSize = Math.max(6, Math.floor(cellSize * 0.4));
+    var fontSize = Math.max(6, Math.floor(cellSize * 0.35));
 
     var g = document.getElementById('grid');
     g.style.gridTemplateColumns = 'repeat(' + COLS + ', ' + cellSize + 'px)';
@@ -202,6 +211,11 @@
     var mics = new Set((config.mics || []).map(function(p) { return p[0] + '_' + p[1]; }));
     var pianos = new Set((config.pianos || []).map(function(p) { return p[0] + '_' + p[1]; }));
 
+    var students = {};
+    (config.students || []).forEach(function(s) {
+      students[s.pos[0] + '_' + s.pos[1]] = s.name;
+    });
+
     for (var r = 1; r <= ROWS; r++) {
       for (var c = 1; c <= COLS; c++) {
         var cell = document.createElement('div');
@@ -228,6 +242,9 @@
         } else if (pianos.has(key)) {
           cell.classList.add('cell-piano');
           cell.innerText = '피';
+        } else if (students[key]) {
+          cell.classList.add('cell-student');
+          cell.innerText = students[key];
         } else {
           cell.dataset.key = key;
           if (currentLayer === 'moved') {
