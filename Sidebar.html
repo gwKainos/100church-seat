@@ -119,270 +119,270 @@
 
 <?!= include('Utils'); ?>
 <script>
-var ROWS = 15, COLS = 32;
-var currentLayer = 'moved';
-var layouts = {};
-var movedSeats = {};
-var selected = { name: '', bg: '', color: '' };
-var cellSize = 20;
+  var ROWS = 15, COLS = 32;
+  var currentLayer = 'moved';
+  var layouts = {};
+  var movedSeats = {};
+  var selected = { name: '', bg: '', color: '' };
+  var cellSize = 20;
 
-function toggleSidebar() {
-  var s = document.getElementById('sidebar');
-  s.classList.toggle('collapsed');
-  document.querySelector('.sidebar-toggle').innerText = s.classList.contains('collapsed') ? '▶' : '◀';
-  setTimeout(resizeGrid, 350);
-}
+  function toggleSidebar() {
+    var s = document.getElementById('sidebar');
+    s.classList.toggle('collapsed');
+    document.querySelector('.sidebar-toggle').innerText = s.classList.contains('collapsed') ? '▶' : '◀';
+    setTimeout(resizeGrid, 350);
+  }
 
-function selectTag(el) {
-  if (currentLayer === 'original') return;
-  document.querySelectorAll('.tag').forEach(function(t) { t.classList.remove('selected'); });
+  function selectTag(el) {
+    if (currentLayer === 'original') return;
+    document.querySelectorAll('.tag').forEach(function(t) { t.classList.remove('selected'); });
 
-  var code = el.dataset.code || el.innerText;
-  if (selected.name === code) {
+    var code = el.dataset.code || el.innerText;
+    if (selected.name === code) {
+      selected = { name: '', bg: '', color: '' };
+      return;
+    }
+
+    var style = getComputedStyle(el);
+    selected = { name: code, bg: style.backgroundColor, color: style.color };
+    el.classList.add('selected');
+  }
+
+  function switchLayer(layer) {
+    currentLayer = layer;
+    document.querySelectorAll('.layer-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelector('.layer-tab[data-layer="' + layer + '"]').classList.add('active');
     selected = { name: '', bg: '', color: '' };
-    return;
+    document.querySelectorAll('.tag').forEach(function(t) { t.classList.remove('selected'); });
+    render();
   }
 
-  var style = getComputedStyle(el);
-  selected = { name: code, bg: style.backgroundColor, color: style.color };
-  el.classList.add('selected');
-}
+  function resizeGrid() {
+    var area = document.getElementById('gridArea');
+    var availWidth = area.clientWidth - 16;
+    var availHeight = area.clientHeight - 16;
 
-function switchLayer(layer) {
-  currentLayer = layer;
-  document.querySelectorAll('.layer-tab').forEach(function(t) { t.classList.remove('active'); });
-  document.querySelector('.layer-tab[data-layer="' + layer + '"]').classList.add('active');
-  selected = { name: '', bg: '', color: '' };
-  document.querySelectorAll('.tag').forEach(function(t) { t.classList.remove('selected'); });
-  render();
-}
+    var cellW = Math.floor(availWidth / COLS);
+    var cellH = Math.floor(availHeight / ROWS);
+    cellSize = Math.max(12, Math.min(cellW, cellH, 30));
 
-function resizeGrid() {
-  var area = document.getElementById('gridArea');
-  var availWidth = area.clientWidth - 16;
-  var availHeight = area.clientHeight - 16;
+    var fontSize = Math.max(6, Math.floor(cellSize * 0.4));
 
-  var cellW = Math.floor(availWidth / COLS);
-  var cellH = Math.floor(availHeight / ROWS);
-  cellSize = Math.max(12, Math.min(cellW, cellH, 30));
+    var g = document.getElementById('grid');
+    g.style.gridTemplateColumns = 'repeat(' + COLS + ', ' + cellSize + 'px)';
 
-  var fontSize = Math.max(6, Math.floor(cellSize * 0.4));
+    document.querySelectorAll('.grid .cell').forEach(function(cell) {
+      cell.style.width = cellSize + 'px';
+      cell.style.height = cellSize + 'px';
+      cell.style.fontSize = fontSize + 'px';
+    });
+  }
 
-  var g = document.getElementById('grid');
-  g.style.gridTemplateColumns = 'repeat(' + COLS + ', ' + cellSize + 'px)';
+  function render() {
+    var g = document.getElementById('grid');
+    g.innerHTML = '';
 
-  document.querySelectorAll('.grid .cell').forEach(function(cell) {
-    cell.style.width = cellSize + 'px';
-    cell.style.height = cellSize + 'px';
-    cell.style.fontSize = fontSize + 'px';
-  });
-}
+    var config = layouts[currentLayer] || { rows: ROWS, aisles: [], pillars: [] };
 
-function render() {
-  var g = document.getElementById('grid');
-  g.innerHTML = '';
-
-  var config = layouts[currentLayer] || { rows: ROWS, aisles: [], pillars: [] };
-
-  var aisles = new Set();
-  (config.aisles || []).forEach(function(p) {
-    if (Array.isArray(p)) {
-      aisles.add(p[0] + '_' + p[1]);
-    } else {
-      for (var r = 1; r <= ROWS; r++) {
-        aisles.add(r + '_' + p);
-      }
-    }
-  });
-
-  var pillars = new Set((config.pillars || []).map(function(p) { return p[0] + '_' + p[1]; }));
-  var pulpits = new Set((config.pulpits || []).map(function(p) { return p[0] + '_' + p[1]; }));
-  var stands = new Set((config.stands || []).map(function(p) { return p[0] + '_' + p[1]; }));
-  var tvs = new Set((config.tvs || []).map(function(p) { return p[0] + '_' + p[1]; }));
-  var mics = new Set((config.mics || []).map(function(p) { return p[0] + '_' + p[1]; }));
-  var pianos = new Set((config.pianos || []).map(function(p) { return p[0] + '_' + p[1]; }));
-
-  for (var r = 1; r <= ROWS; r++) {
-    for (var c = 1; c <= COLS; c++) {
-      var cell = document.createElement('div');
-      cell.className = 'cell';
-      var key = r + '_' + c;
-
-      if (aisles.has(key)) {
-        cell.classList.add('cell-aisle');
-      } else if (pillars.has(key)) {
-        cell.classList.add('cell-pillar');
-        cell.innerText = '기';
-      } else if (pulpits.has(key)) {
-        cell.classList.add('cell-pulpit');
-        cell.innerText = '강';
-      } else if (stands.has(key)) {
-        cell.classList.add('cell-stand');
-        cell.innerText = '보';
-      } else if (tvs.has(key)) {
-        cell.classList.add('cell-tv');
-        cell.innerText = 'TV';
-      } else if (mics.has(key)) {
-        cell.classList.add('cell-mic');
-        cell.innerText = '마';
-      } else if (pianos.has(key)) {
-        cell.classList.add('cell-piano');
-        cell.innerText = '피';
+    var aisles = new Set();
+    (config.aisles || []).forEach(function(p) {
+      if (Array.isArray(p)) {
+        aisles.add(p[0] + '_' + p[1]);
       } else {
-        cell.dataset.key = key;
-        if (currentLayer === 'moved') {
-          cell.classList.add('cell-seat', 'cell-selectable');
-          cell.onmousedown = function() { Drag.start(); paint(this); };
-          cell.onmouseenter = function() { if (Drag.active) paint(this); };
-          cell.ontouchstart = function() { Drag.start(); paint(this); };
-        } else {
-          cell.classList.add('cell-readonly');
+        for (var r = 1; r <= ROWS; r++) {
+          aisles.add(r + '_' + p);
         }
       }
-      g.appendChild(cell);
-    }
-  }
+    });
 
-  resizeGrid();
-  if (currentLayer === 'moved') applySeats();
-}
+    var pillars = new Set((config.pillars || []).map(function(p) { return p[0] + '_' + p[1]; }));
+    var pulpits = new Set((config.pulpits || []).map(function(p) { return p[0] + '_' + p[1]; }));
+    var stands = new Set((config.stands || []).map(function(p) { return p[0] + '_' + p[1]; }));
+    var tvs = new Set((config.tvs || []).map(function(p) { return p[0] + '_' + p[1]; }));
+    var mics = new Set((config.mics || []).map(function(p) { return p[0] + '_' + p[1]; }));
+    var pianos = new Set((config.pianos || []).map(function(p) { return p[0] + '_' + p[1]; }));
 
-function applySeats() {
-  var tags = document.querySelectorAll('.tag');
-  document.querySelectorAll('.cell-selectable').forEach(function(cell) {
-    var name = movedSeats[cell.dataset.key];
-    if (name) {
-      cell.innerText = name;
-      tags.forEach(function(t) {
-        var code = t.dataset.code || t.innerText;
-        if (code === name) {
-          var s = getComputedStyle(t);
-          cell.style.backgroundColor = s.backgroundColor;
-          cell.style.color = s.color;
+    for (var r = 1; r <= ROWS; r++) {
+      for (var c = 1; c <= COLS; c++) {
+        var cell = document.createElement('div');
+        cell.className = 'cell';
+        var key = r + '_' + c;
+
+        if (aisles.has(key)) {
+          cell.classList.add('cell-aisle');
+        } else if (pillars.has(key)) {
+          cell.classList.add('cell-pillar');
+          cell.innerText = '기';
+        } else if (pulpits.has(key)) {
+          cell.classList.add('cell-pulpit');
+          cell.innerText = '강';
+        } else if (stands.has(key)) {
+          cell.classList.add('cell-stand');
+          cell.innerText = '보';
+        } else if (tvs.has(key)) {
+          cell.classList.add('cell-tv');
+          cell.innerText = 'TV';
+        } else if (mics.has(key)) {
+          cell.classList.add('cell-mic');
+          cell.innerText = '마';
+        } else if (pianos.has(key)) {
+          cell.classList.add('cell-piano');
+          cell.innerText = '피';
+        } else {
+          cell.dataset.key = key;
+          if (currentLayer === 'moved') {
+            cell.classList.add('cell-seat', 'cell-selectable');
+            cell.onmousedown = function() { Drag.start(); paint(this); };
+            cell.onmouseenter = function() { if (Drag.active) paint(this); };
+            cell.ontouchstart = function() { Drag.start(); paint(this); };
+          } else {
+            cell.classList.add('cell-readonly');
+          }
         }
-      });
+        g.appendChild(cell);
+      }
     }
+
+    resizeGrid();
+    if (currentLayer === 'moved') applySeats();
+  }
+
+  function applySeats() {
+    var tags = document.querySelectorAll('.tag');
+    document.querySelectorAll('.cell-selectable').forEach(function(cell) {
+      var name = movedSeats[cell.dataset.key];
+      if (name) {
+        cell.innerText = name;
+        tags.forEach(function(t) {
+          var code = t.dataset.code || t.innerText;
+          if (code === name) {
+            var s = getComputedStyle(t);
+            cell.style.backgroundColor = s.backgroundColor;
+            cell.style.color = s.color;
+          }
+        });
+      }
+    });
+  }
+
+  function paint(cell) {
+    if (currentLayer !== 'moved') return;
+    if (selected.name) {
+      cell.innerText = selected.name;
+      cell.style.backgroundColor = selected.bg;
+      cell.style.color = selected.color;
+    } else {
+      cell.innerText = '';
+      cell.style.backgroundColor = '';
+      cell.style.color = '';
+    }
+  }
+
+  function save() {
+    if (currentLayer !== 'moved') {
+      alert('이동 자리 탭에서만 저장할 수 있습니다.');
+      return;
+    }
+    App.showLoading('저장 중...');
+    var data = {};
+    document.querySelectorAll('.cell-selectable').forEach(function(c) {
+      if (c.innerText) data[c.dataset.key] = c.innerText;
+    });
+    movedSeats = data;
+
+    google.script.run
+      .withSuccessHandler(function(msg) {
+        alert(msg);
+        App.updateVersion();
+        App.hideLoading();
+      })
+      .saveMovedSeats(data);
+  }
+
+  function reset() {
+    if (!confirm('이동 자리 배치를 모두 삭제하시겠습니까?')) return;
+    App.showLoading('초기화 중...');
+
+    google.script.run
+      .withSuccessHandler(function(msg) {
+        alert(msg);
+        movedSeats = {};
+        render();
+        App.hideLoading();
+      })
+      .resetMovedSeats();
+  }
+
+  function refresh() {
+    App.hideAlert();
+    load();
+  }
+
+  function load() {
+    App.showLoading('불러오는 중...');
+
+    google.script.run
+      .withSuccessHandler(function(originalConfig) {
+        layouts.original = originalConfig || { rows: 15, aisles: [], pillars: [] };
+
+        google.script.run
+          .withSuccessHandler(function(movedConfig) {
+            layouts.moved = movedConfig || { rows: 15, aisles: [], pillars: [] };
+
+            google.script.run
+              .withSuccessHandler(function(seats) {
+                movedSeats = seats || {};
+                try {
+                  render();
+                } catch (e) {
+                  console.error('렌더링 오류:', e);
+                }
+                App.updateVersion();
+                App.hideLoading();
+              })
+              .withFailureHandler(function(e) {
+                console.error('좌석 로드 실패:', e);
+                try { render(); } catch (err) { console.error('렌더링 오류:', err); }
+                App.hideLoading();
+              })
+              .getMovedSeats();
+          })
+          .withFailureHandler(function(e) {
+            console.error('이동 레이아웃 로드 실패:', e);
+            layouts.moved = { rows: 15, aisles: [], pillars: [] };
+            try { render(); } catch (err) { console.error('렌더링 오류:', err); }
+            App.hideLoading();
+          })
+          .getLayout('moved');
+      })
+      .withFailureHandler(function(e) {
+        console.error('원본 레이아웃 로드 실패:', e);
+        layouts.original = { rows: 15, aisles: [], pillars: [] };
+        try { render(); } catch (err) { console.error('렌더링 오류:', err); }
+        App.hideLoading();
+      })
+      .getLayout('original');
+  }
+
+  // 터치 드래그
+  document.addEventListener('touchmove', function(e) {
+    if (Drag.active && currentLayer === 'moved') {
+      var t = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+      if (t && t.classList.contains('cell-selectable')) paint(t);
+    }
+  }, { passive: false });
+
+  // 화면 크기 변경 시 그리드 리사이즈
+  window.addEventListener('resize', function() {
+    setTimeout(resizeGrid, 100);
   });
-}
 
-function paint(cell) {
-  if (currentLayer !== 'moved') return;
-  if (selected.name) {
-    cell.innerText = selected.name;
-    cell.style.backgroundColor = selected.bg;
-    cell.style.color = selected.color;
-  } else {
-    cell.innerText = '';
-    cell.style.backgroundColor = '';
-    cell.style.color = '';
-  }
-}
-
-function save() {
-  if (currentLayer !== 'moved') {
-    alert('이동 자리 탭에서만 저장할 수 있습니다.');
-    return;
-  }
-  App.showLoading('저장 중...');
-  var data = {};
-  document.querySelectorAll('.cell-selectable').forEach(function(c) {
-    if (c.innerText) data[c.dataset.key] = c.innerText;
+  window.addEventListener('orientationchange', function() {
+    setTimeout(resizeGrid, 300);
   });
-  movedSeats = data;
 
-  google.script.run
-    .withSuccessHandler(function(msg) {
-      alert(msg);
-      App.updateVersion();
-      App.hideLoading();
-    })
-    .saveMovedSeats(data);
-}
-
-function reset() {
-  if (!confirm('이동 자리 배치를 모두 삭제하시겠습니까?')) return;
-  App.showLoading('초기화 중...');
-
-  google.script.run
-    .withSuccessHandler(function(msg) {
-      alert(msg);
-      movedSeats = {};
-      render();
-      App.hideLoading();
-    })
-    .resetMovedSeats();
-}
-
-function refresh() {
-  App.hideAlert();
-  load();
-}
-
-function load() {
-  App.showLoading('불러오는 중...');
-
-  google.script.run
-    .withSuccessHandler(function(originalConfig) {
-      layouts.original = originalConfig || { rows: 15, aisles: [], pillars: [] };
-
-      google.script.run
-        .withSuccessHandler(function(movedConfig) {
-          layouts.moved = movedConfig || { rows: 15, aisles: [], pillars: [] };
-
-          google.script.run
-            .withSuccessHandler(function(seats) {
-              movedSeats = seats || {};
-              try {
-                render();
-              } catch (e) {
-                console.error('렌더링 오류:', e);
-              }
-              App.updateVersion();
-              App.hideLoading();
-            })
-            .withFailureHandler(function(e) {
-              console.error('좌석 로드 실패:', e);
-              try { render(); } catch (err) { console.error('렌더링 오류:', err); }
-              App.hideLoading();
-            })
-            .getMovedSeats();
-        })
-        .withFailureHandler(function(e) {
-          console.error('이동 레이아웃 로드 실패:', e);
-          layouts.moved = { rows: 15, aisles: [], pillars: [] };
-          try { render(); } catch (err) { console.error('렌더링 오류:', err); }
-          App.hideLoading();
-        })
-        .getLayout('moved');
-    })
-    .withFailureHandler(function(e) {
-      console.error('원본 레이아웃 로드 실패:', e);
-      layouts.original = { rows: 15, aisles: [], pillars: [] };
-      try { render(); } catch (err) { console.error('렌더링 오류:', err); }
-      App.hideLoading();
-    })
-    .getLayout('original');
-}
-
-// 터치 드래그
-document.addEventListener('touchmove', function(e) {
-  if (Drag.active && currentLayer === 'moved') {
-    var t = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
-    if (t && t.classList.contains('cell-selectable')) paint(t);
-  }
-}, { passive: false });
-
-// 화면 크기 변경 시 그리드 리사이즈
-window.addEventListener('resize', function() {
-  setTimeout(resizeGrid, 100);
-});
-
-window.addEventListener('orientationchange', function() {
-  setTimeout(resizeGrid, 300);
-});
-
-window.onload = load;
-setInterval(function() { App.checkVersion(); }, 15000);
+  window.onload = load;
+  setInterval(function() { App.checkVersion(); }, 15000);
 </script>
 </body>
 </html>
